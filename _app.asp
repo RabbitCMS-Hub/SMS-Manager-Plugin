@@ -26,15 +26,13 @@ Const SMS_SUCCESS 	= 1
 Const PACKET_XML 	= 0
 Const PACKET_JSON 	= 1
 
-SMS_MODULE
-zmdi-local-post-office
-Class SMSModule
+Class SMS_Manager_Plugin
 	Private PLUGIN_CODE, PLUGIN_DB_NAME, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_CREDITS, PLUGIN_GIT, PLUGIN_DEV_URL, PLUGIN_FILES_ROOT, PLUGIN_ICON, PLUGIN_REMOVABLE, PLUGIN_ROOT, PLUGIN_FOLDER_NAME
 
 	Private SYSTEM_LANG_ID
 	Private SMS_MODULE_ACTIVE, SMS_MODULE_APIKEY, SMS_MODULE_HEADER, SMS_MODULE_PROVIDER_URL, SMS_MODULE_PROVIDER, SMS_MODULE_PASSWORD
 	Private SMS_STATUS, SMS_RESPONSE
-	Private SMS_MESAJ, SMS_ALICI, BYPASS_MODULE, SEND_REQUEST, GET_RESPONSE
+	Private SMS_MESAJ, SMS_ALICI, BYPASS_MODULE, SEND_REQUEST, GET_RESPONSE, SMS_TEST_MESSAGE_TEXT
 
 	'---------------------------------------------------------------
 	' Register Class
@@ -61,8 +59,8 @@ Class SMSModule
     		Conn.Execute("SET NAMES utf8mb4;") 
     		Conn.Execute("SET FOREIGN_KEY_CHECKS = 0;") 
     		
-    		Conn.Execute("DROP TABLE IF EXISTS `"& PluginTableName &"`")
-    		q="CREATE TABLE `"& PluginTableName &"` ( "
+    		Conn.Execute("DROP TABLE IF EXISTS `"& PluginTableName &"_module`")
+    		q="CREATE TABLE `"& PluginTableName &"_module` ( "
     		q=q+"  `ID` int(11) NOT NULL AUTO_INCREMENT, "
     		q=q+"  `NUMARA` varchar(20) DEFAULT NULL, "
     		q=q+"  `MESAJ` varchar(255) DEFAULT NULL, "
@@ -72,9 +70,10 @@ Class SMSModule
     		q=q+"  KEY `IND1` (`NUMARA`) "
     		q=q+") ENGINE=MyISAM DEFAULT CHARSET=utf8; "
 			Conn.Execute(q) : q=""
+    		Call PanelLog(""& PLUGIN_CODE &"_module için database tablosu oluşturuldu", 0, ""& PLUGIN_CODE &"", 0)
 
-    		Conn.Execute("DROP TABLE IF EXISTS `tbl_plugin_sms_block`")
-    		q="CREATE TABLE `tbl_plugin_sms_block` ( "
+    		Conn.Execute("DROP TABLE IF EXISTS `"& PluginTableName &"_block`")
+    		q="CREATE TABLE `"& PluginTableName &"_block` ( "
     		q=q+"  `ID` int(11) NOT NULL AUTO_INCREMENT, "
     		q=q+"  `NUMARA` varchar(20) DEFAULT NULL, "
     		q=q+"  `TARIH` datetime DEFAULT NULL, "
@@ -84,10 +83,8 @@ Class SMSModule
 			Conn.Execute(q) : q=""
 
     		Conn.Execute("SET FOREIGN_KEY_CHECKS = 1;") 
+    		Call PanelLog(""& PLUGIN_CODE &"_block için database tablosu oluşturuldu", 0, ""& PLUGIN_CODE &"", 0)
 
-			' Create Log
-			'------------------------------
-    		Call PanelLog(""& PLUGIN_CODE &" için database tablosu oluşturuldu", 0, ""& PLUGIN_CODE &"", 0)
     	End If
 
 		' Register Settings
@@ -211,6 +208,31 @@ Class SMSModule
 		End If
 
 		'--------------------------------------------------------
+		' Sub Page 
+		'--------------------------------------------------------
+		If Query.Data("Page") = "AJAX:TestSMS" Then
+		    Query.PageContentType = "json"
+			
+			Set rsTempClass = New SMS_Manager_Plugin
+				rsTempClass.ByBass = 1
+				rsTempClass.Mesaj  = SMS_TEST_MESSAGE_TEXT
+				rsTempClass.Numara = Query.Data("NUMARA")
+				
+				apiResponse = rsTempClass.SendSMS()
+					tmp_status 	= apiResponse(0)
+					tmp_response= apiResponse(1)
+
+				If tmp_status = SMS_SUCCESS Then 
+		        	Query.jsonResponse 200, tmp_response
+				Else 
+		        	Query.jsonResponse 400, tmp_response
+				End If
+			Set rsTempClass = Nothing
+
+			Call SystemTeardown("destroy")
+		End If
+
+		'--------------------------------------------------------
 		' Main Page
 		'--------------------------------------------------------
 		With Response
@@ -222,28 +244,28 @@ Class SMSModule
 			.Write 			QuickSettings("select", ""& PLUGIN_CODE &"_PROVIDER", "Servis Sağlayıcı", "SANALSANTRAL#Sanal Santral|CAGRISMS#Çağrı SMS|NETGSM#NetGSM", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-6 col-sm-12"">"
-			.Write 			QuickSettings("input", "SMS_MODULE_PROVIDER_URL", "Servis Sağlayıcı URL (Boş Default Kullanır)", "", TO_DB)
+			.Write 			QuickSettings("input", ""& PLUGIN_CODE &"_PROVIDER_URL", "Servis Sağlayıcı URL (Boş Default Kullanır)", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("input", "SMS_MODULE_APIKEY", "API Anahtarı veya Kullanıcı Adı", "", TO_DB)
+			.Write 			QuickSettings("input", ""& PLUGIN_CODE &"_APIKEY", "API Anahtarı veya Kullanıcı Adı", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("input", "SMS_MODULE_PASSWORD", "API Şifresi (opsiyonel)", "", TO_DB)
+			.Write 			QuickSettings("input", ""& PLUGIN_CODE &"_PASSWORD", "API Şifresi (opsiyonel)", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("input", "SMS_MODULE_HEADER", "SMS Header", "", TO_DB)
+			.Write 			QuickSettings("input", ""& PLUGIN_CODE &"_HEADER", "SMS Header", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("textarea", "SMS_MODULE_PREMSG_USERREGISTER", "Yeni Üyeye Giden Mesaj", "", TO_DB)
-			.Write 			QuickSettings("checkbox", "SMS_MODULE_PREMSG_USERREGISTER_STATUS", "Aktiflik", "", TO_DB)
+			.Write 			QuickSettings("textarea", ""& PLUGIN_CODE &"_PREMSG_USERREGISTER", "Yeni Üyeye Giden Mesaj", "", TO_DB)
+			.Write 			QuickSettings("checkbox", ""& PLUGIN_CODE &"_PREMSG_USERREGISTER_STATUS", "Aktiflik", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("textarea", "SMS_MODULE_PREMSG_LOSTPASSWD", "Parolamı Unuttum Giden Mesaj", "", TO_DB)
-			.Write 			QuickSettings("checkbox", "SMS_MODULE_PREMSG_LOSTPASSWD_STATUS", "Aktiflik", "", TO_DB)
+			.Write 			QuickSettings("textarea", ""& PLUGIN_CODE &"_PREMSG_LOSTPASSWD", "Parolamı Unuttum Giden Mesaj", "", TO_DB)
+			.Write 			QuickSettings("checkbox", ""& PLUGIN_CODE &"_PREMSG_LOSTPASSWD_STATUS", "Aktiflik", "", TO_DB)
 			.Write "    </div>"
 			.Write "    <div class=""col-lg-4 col-sm-12"">"
-			.Write 			QuickSettings("textarea", "SMS_MODULE_PREMSG_ORDERCOMPLETE", "Sipariş Tamamlandı Giden Mesaj", "", TO_DB)
-			.Write 			QuickSettings("checkbox", "SMS_MODULE_PREMSG_ORDERCOMPLETE_STATUS", "Aktiflik", "", TO_DB)
+			.Write 			QuickSettings("textarea", ""& PLUGIN_CODE &"_PREMSG_ORDERCOMPLETE", "Sipariş Tamamlandı Giden Mesaj", "", TO_DB)
+			.Write 			QuickSettings("checkbox", ""& PLUGIN_CODE &"_PREMSG_ORDERCOMPLETE_STATUS", "Aktiflik", "", TO_DB)
 			.Write "    </div>"
 
 			.Write "    <div class=""col-lg-12 col-sm-12"">"
@@ -252,13 +274,17 @@ Class SMSModule
 			.Write "</div>"
 
 			.Write "<div class=""row"">"
-			.Write "    <div class=""col-lg-12 col-sm-12 mt-3"" style=""background-color: rgb(55 227 255 / 30%); padding: 20px;"">"
-		    .Write "<form method=""post"" action=""/sys/?Cmd=SMS_MODULE:TestSMS"" data-ajax-submit data-ajax-callback=""SMSTestResult"" data-ajax-modalclose=""false"">"
+			.Write "    <div class=""col-lg-12 col-sm-12 mt-3"" style=""background-color:rgb(55 227 255 / 30%);padding:20px;margin:0px 15px 10px 15px;"">"
+		    .Write "<form method=""post"" action=""ajax.asp?Cmd=PluginSettings&PluginName="& PLUGIN_CODE &"&Page=AJAX:TestSMS"" data-ajax-submit data-ajax-callback=""SMSTestResult"" data-ajax-modalclose=""false"">"
 			.Write "    <div class=""form-group"">"
+			.Write "    	<label>SMS Test Mesajı</label>"
+			.Write "        <input type=""text"" class=""form-control"" value="""& SMS_TEST_MESSAGE_TEXT &""" readonly />"
+			.Write "    </div>"
+			.Write "    <div class=""form-group mb-0"">"
 			.Write "    	<label>SMS Gönderim Testi</label>"
 			.Write "        <div class=""input-group"">"
 			.Write "    		<div class=""form-group"">"
-			.Write "            	<input name=""NUMARA"" placeholder=""Örn. 5122345678"" type=""text"" minlength=""10"" maxlength="10" pattern="^[5]"[0-9]{9}$"" class=""form-control"" required />"
+			.Write "            	<input name=""NUMARA"" placeholder=""Örn. 5122345678"" type=""text"" minlength=""10"" maxlength=""10"" pattern=""^[5][0-9]{9}$"" class=""form-control"" required autocomplete=""off"" />"
 			.Write "            </div>"
 		    .Write "            <button type=""submit"" id=""SendSMSPreview"" onclick=""$('#SMSTestSonucu').html('İşlem yapılıyor...');"" class=""btn btn-success"">"
 		    .Write "                Test Gönder"
@@ -281,6 +307,7 @@ Class SMSModule
 			.Write "    </div>"
 			.Write "</div>"
 			
+	    	.Write "<script type=""text/javascript"" src=""/content/plugins/SMS-Manager-Plugin/js/app.js""></script>"
 		End With
 	End Sub
 	'---------------------------------------------------------------
@@ -288,30 +315,30 @@ Class SMSModule
 	'---------------------------------------------------------------
 
 
-
-
-
-
-
 	'---------------------------------------------------------------
-	'
+	' Class First Init
 	'---------------------------------------------------------------
-	Public sub LoadPanel()%>
-    <script>
-    	function SMSTestResult(vText=''){
-    		$('#SMSTestSonucu').html('<pre class="alert alert-info mt-2">'+ vText +'</pre>');
-    		$('#SendSMSPreview').prop('disabled', false);
-    	};
-    </script>
-	<%End Sub
-	'---------------------------------------------------------------
-	'
-	'---------------------------------------------------------------
+	Private Sub class_initialize()
+    	'-------------------------------------------------------------------------------------
+    	' PluginTemplate Main Variables
+    	'-------------------------------------------------------------------------------------
+    	PLUGIN_CODE  			= "SMS_MODULE"
+    	PLUGIN_NAME 			= "SMS Manager Plugin"
+    	PLUGIN_VERSION 			= "1.0.0"
+    	PLUGIN_GIT 				= "https://github.com/RabbitCMS-Hub/SMS-Manager-Plugin"
+    	PLUGIN_DEV_URL 			= "https://adjans.com.tr"
+    	PLUGIN_FILES_ROOT 		= PLUGIN_VIRTUAL_FOLDER(This)
+    	PLUGIN_ICON 			= "zmdi-local-post-office"
+    	PLUGIN_REMOVABLE 		= True
+    	PLUGIN_CREDITS 			= "@badursun Anthony Burak DURSUN"
+    	PLUGIN_ROOT 			= PLUGIN_DIST_FOLDER_PATH(This)
+    	PLUGIN_FOLDER_NAME 		= "SMS-Manager-Plugin"
 
-	'---------------------------------------------------------------
-	'
-	'---------------------------------------------------------------
-	private sub class_initialize()
+    	PLUGIN_DB_NAME 			= "sms" ' tbl_plugin_XXXXXXX
+    	'-------------------------------------------------------------------------------------
+    	' PluginTemplate Main Variables
+    	'-------------------------------------------------------------------------------------
+
         SYSTEM_LANG_ID          = Session("LANG_ID")
         If IsNull(SYSTEM_LANG_ID) OR IsEmpty(SYSTEM_LANG_ID) OR Not IsNumeric(SYSTEM_LANG_ID) OR SYSTEM_LANG_ID="" Then
             SYSTEM_LANG_ID = SYSTEM_DEFAULT_LANG_ID
@@ -330,21 +357,52 @@ Class SMSModule
 		BYPASS_MODULE 			= 0
 		SEND_REQUEST 			= Null
 		GET_RESPONSE 			= Null
-	end sub
+		SMS_TEST_MESSAGE_TEXT 	= ""& PLUGIN_NAME &" Test Messages Send @"& Now() &" From:"& IPAdresi() &" On:"& DOMAIN_URL &" ("& SETTINGS_CMS_UNIQUE_ID &")"
+
+    	'-------------------------------------------------------------------------------------
+    	' PluginTemplate Register App
+    	'-------------------------------------------------------------------------------------
+    	class_register()
+	End Sub
 	'---------------------------------------------------------------
-	'
+	' Class First Init
 	'---------------------------------------------------------------
 
 
 	'---------------------------------------------------------------
-	'
+	' Class Terminate
 	'---------------------------------------------------------------
 	Private sub class_terminate()
 
 	End Sub
 	'---------------------------------------------------------------
-	'
+	' Class Terminate
 	'---------------------------------------------------------------
+
+
+	'---------------------------------------------------------------
+	' Plugin Defines
+	'---------------------------------------------------------------
+	Public Property Get PluginCode() 		: PluginCode = PLUGIN_CODE 					: End Property
+	Public Property Get PluginName() 		: PluginName = PLUGIN_NAME 					: End Property
+	Public Property Get PluginVersion() 	: PluginVersion = PLUGIN_VERSION 			: End Property
+	Public Property Get PluginGit() 		: PluginGit = PLUGIN_GIT 					: End Property
+	Public Property Get PluginDevURL() 		: PluginDevURL = PLUGIN_DEV_URL 			: End Property
+	Public Property Get PluginFolder() 		: PluginFolder = PLUGIN_FILES_ROOT 			: End Property
+	Public Property Get PluginIcon() 		: PluginIcon = PLUGIN_ICON 					: End Property
+	Public Property Get PluginRemovable() 	: PluginRemovable = PLUGIN_REMOVABLE 		: End Property
+	Public Property Get PluginCredits() 	: PluginCredits = PLUGIN_CREDITS 			: End Property
+	Public Property Get PluginRoot() 		: PluginRoot = PLUGIN_ROOT 					: End Property
+	Public Property Get PluginFolderName() 	: PluginFolderName = PLUGIN_FOLDER_NAME 	: End Property
+	Public Property Get PluginDBTable() 	: PluginDBTable = IIf(Len(PLUGIN_DB_NAME)>2, "tbl_plugin_"&PLUGIN_DB_NAME, "") 	: End Property
+
+	Private Property Get This()
+		This = Array(PluginCode, PluginName, PluginVersion, PluginGit, PluginDevURL, PluginFolder, PluginIcon, PluginRemovable, PluginCredits, PluginRoot, PluginFolderName, PluginDBTable )
+	End Property
+	'---------------------------------------------------------------
+	' Plugin Defines
+	'---------------------------------------------------------------
+
 
 	'---------------------------------------------------------------
 	'
@@ -739,7 +797,7 @@ Class SMSModule
 		' 200 Harici Sunucu kodu döndüyse
 		'----------------------------------------------
 	    If Not tmp_response(0) = "200" Then 
-			SendFromCagriSMS = Array(SMS_ERROR, "Bir hata oluştu. Yanıt kodu: "& tmp_response(0) &"" )
+			SendFromCagriSMS = Array(SMS_ERROR, "Bir hata oluştu. Yanıt kodu:"& tmp_response(0) &" Mesaj:"& tmp_response(1) &"" )
 			Exit Function
 	    End If
 
@@ -827,31 +885,4 @@ Class SMSModule
 	'
 	'---------------------------------------------------------------
 End Class 
-
-
-If Query.Data("Cmd") = "SMS_MODULE:TestSMS" Then
-    Query.PageContentType = "json"
-	
-	Set rsTempClass = New SMSModule
-		rsTempClass.ByBass = 1
-		rsTempClass.Mesaj  = "Bu bir yazılım test mesajıdır."
-		rsTempClass.Numara = Query.Data("NUMARA")
-		
-		apiResponse = rsTempClass.SendSMS()
-			tmp_status 	= apiResponse(0)
-			tmp_response= apiResponse(1)
-
-		If tmp_status = SMS_SUCCESS Then 
-        	Query.jsonResponse 200, tmp_response
-		Else 
-        	Query.jsonResponse 400, tmp_response
-		End If
-
-		' Response.Write rsTempClass.RequestData()
-		' Response.Write rsTempClass.ResponseData()
-	
-	Set rsTempClass = Nothing
-
-	Call SystemTeardown("destroy")
-End If
 %>
