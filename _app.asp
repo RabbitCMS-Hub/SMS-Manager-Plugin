@@ -64,7 +64,7 @@ Class SMS_Manager_Plugin
     		q=q+"  `ID` int(11) NOT NULL AUTO_INCREMENT, "
     		q=q+"  `NUMARA` varchar(20) DEFAULT NULL, "
     		q=q+"  `MESAJ` varchar(255) DEFAULT NULL, "
-    		q=q+"  `GONDERIM_TARIHI` datetime DEFAULT NULL, "
+    		q=q+"  `GONDERIM_TARIHI` datetime DEFAULT current_timestamp(), "
     		q=q+"  `PROVIDER` varchar(20) DEFAULT NULL, "
     		q=q+"  PRIMARY KEY (`ID`), "
     		q=q+"  KEY `IND1` (`NUMARA`) "
@@ -76,7 +76,7 @@ Class SMS_Manager_Plugin
     		q="CREATE TABLE `"& PluginTableName &"_block` ( "
     		q=q+"  `ID` int(11) NOT NULL AUTO_INCREMENT, "
     		q=q+"  `NUMARA` varchar(20) DEFAULT NULL, "
-    		q=q+"  `TARIH` datetime DEFAULT NULL, "
+    		q=q+"  `TARIH` datetime DEFAULT current_timestamp(), "
     		q=q+"  PRIMARY KEY (`ID`), "
     		q=q+"  KEY `IND1` (`NUMARA`) "
     		q=q+") ENGINE=MyISAM DEFAULT CHARSET=utf8; "
@@ -690,7 +690,7 @@ Class SMS_Manager_Plugin
 		    xml=xml+"</body> "
 		xml=xml+"</mainbody> "
 
-		Response.Write xml 
+		' Response.Write xml 
 	    SendFromNetGsm = XMLHttp(URL_NETGSM, "POST", xml, PACKET_XML) : xml=""
 	End Function
 	'---------------------------------------------------------------
